@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gobblet 4x4 Drag & Drop</title>
+  <style>
+    :root {
+      --bg: #f7f4ee;
+      --panel: #fffaf2;
+      --cell: #f3dfc1;
+      --cell-hover: #f8e9d0;
+      --line: #d9c7a7;
+      --text: #3a2f1f;
+      --muted: #786852;
+      --accent: #8b5e34;
+      --p1: #ffffff;
+      --p2: #000000;
+      --win: #2f9e44;
+      --danger: #e03131;
+      --shadow: rgba(0,0,0,0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      padding: 20px;
+      overflow-x: hidden;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 1080px;
+      display: grid;
+      grid-template-columns: 280px 1fr 280px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    h1 {
+      grid-column: 1 / -1;
+      text-align: center;
+      margin: 0;
+      font-size: 30px;
+    }
+
+    .subtitle {
+      grid-column: 1 / -1;
+      text-align: center;
+      color: var(--muted);
+      margin-top: -8px;
+      font-size: 14px;
+    }
+
+    .status {
+      grid-column: 1 / -1;
+      text-align: center;
+      background: #fff;
+      border: 2px solid var(--line);
+      border-radius: 14px;
+      padding: 13px 16px;
+      font-size: 18px;
+      font-weight: bold;
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 2px solid var(--line);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: 0 8px 18px var(--shadow);
+    }
+
+    .player-title {
+      text-align: center;
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 12px;
+    }
+
+    .player1 .player-title {
+      color: #ff6b6b;
+    }
+
+    .player2 .player-title {
+      color: #4dabf7;
+    }
+
+    .bank {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .size-row {
+      border-top: 1px solid rgba(0,0,0,0.08);
+      padding-top: 12px;
+    }
+
+    .size-row:first-child {
+      border-top: none;
+      padding-top: 0;
+    }
+
+    .size-label {
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .pieces {
+      min-height: 76px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .board-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .board {
+      width: min(76vw, 430px);
+      height: min(76vw, 430px);
+      background: #d9b382;
+      border: 10px solid #b08968;
+      border-radius: 22px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(4, 1fr);
+      gap: 8px;
+      padding: 8px;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.08), 0 8px 18px var(--shadow);
+      touch-action: none;
+    }
+
+    .cell {
+      position: relative;
+      background: var(--cell);
+      border: 2px solid rgba(90,60,20,0.14);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.12s ease, box-shadow 0.12s ease;
+      overflow: hidden;
+    }
+
+    .cell.can-drop {
+      box-shadow: inset 0 0 0 5px #ffd43b;
+      background: var(--cell-hover);
+    }
+
+    .cell.bad-drop {
+      box-shadow: inset 0 0 0 5px rgba(224,49,49,0.45);
+    }
+
+    .stack {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .piece {
+      border-radius: 50%;
+      border: 3px solid rgba(0,0,0,0.16);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: p1;
+      font-weight: bold;
+      user-select: none;
+      touch-action: none;
+      cursor: grab;
+      box-shadow: 0 4px 8px var(--shadow);
+      transition: transform 0.1s ease, opacity 0.1s ease;
+    }
+
+    .piece:active {
+      cursor: grabbing;
+    }
+
+    .piece.small {
+      width: 36px;
+      height: 36px;
+      font-size: 12px;
+    }
+
+    .piece.medium {
+      width: 54px;
+      height: 54px;
+      font-size: 14px;
+    }
+
+    .piece.large {
+      width: 72px;
+      height: 72px;
+      font-size: 16px;
+    }
+
+    .piece.xlarge {
+      width: 88px;
+      height: 88px;
+      font-size: 18px;
+    }
+
+    .piece.p1 {
+      background: #ff6b6b;
+    }
+
+    .piece.p2 {
+      background: #4dabf7;
+    }
+
+    .piece.on-board {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      cursor: default;
+      transform: translate(-50%, -50%);
+    }
+
+    .piece.on-board.top-piece {
+      cursor: grab;
+    }
+
+    .piece.on-board.covered {
+      opacity: 0;
+      visibility: hidden;
+      cursor: default;
+      pointer-events: none;
+    }
+
+    .piece.dragging {
+      opacity: 0.25;
+    }
+
+    .piece.disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .ghost {
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 9999;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      opacity: 0.95;
+    }
+
+    .selected {
+      outline: 4px solid #ffd43b;
+      transform: scale(1.08);
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: none;
+      background: var(--accent);
+      color: p1;
+      padding: 12px 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    button:hover {
+      filter: brightness(1.05);
+    }
+
+    .rules {
+      width: 100%;
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--muted);
+    }
+
+    .turn-p1 {
+      color: #ff6b6b;
+    }
+
+    .turn-p2 {
+      color: #4dabf7;
+    }
+
+    .winner {
+      color: var(--win);
+    }
+
+    .error {
+      color: var(--danger);
+    }
+
+    .tiny {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 12px;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 940px) {
+      body {
+        padding: 14px;
+      }
+
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .board {
+        width: min(92vw, 430px);
+        height: min(92vw, 430px);
+      }
+
+      .panel {
+        max-width: 430px;
+        width: 100%;
+        margin: 0 auto;
+      }
+
+      .player1 {
+        order: 4;
+      }
+
+      .board-wrap {
+        order: 3;
+      }
+
+      .player2 {
+        order: 5;
+      }
+    }
+  
+.cell.win-cell {
+  background-color: #ffe66d !important;
+  box-shadow: inset 0 0 0 4px #f59f00;
+}
+
+.piece { color: transparent !important; font-size: 0 !important; }
+.piece::before, .piece::after { color: inherit; }
+
+.piece.p1, .piece.p1 { border: 2px solid #111827 !important; }
+.piece.p2, .piece.p2 { border: 2px solid #111827 !important; }
+</style>
+</head>
+<body>
+  <div class="app">
+    <h1>Gobblet 4x4</h1>
+    <div class="status" id="status"></div>
+
+    <div class="panel player1">
+      <div class="player-title">빨강 플레이어</div>
+      <div class="bank" id="bank-p1"></div>
+      <div class="tiny">자기 차례에 말을 보드로 끌어다 놓으세요.</div>
+    </div>
+
+    <div class="board-wrap">
+      <div class="board" id="board"></div>
+
+      <div class="controls">
+        <button type="button" id="resetBtn">새 게임</button>
+        <button type="button" id="cancelBtn">선택 취소</button>
+      </div>
+
+      <div class="panel rules">
+        <strong>규칙</strong><br />
+        - 자기 차례에는 자기 말만 움직일 수 있습니다.<br />
+        - 보유 말은 빈 칸 또는 더 작은 말 위에 놓을 수 있습니다.<br />
+        - 보드 위의 자기 맨 위 말도 다른 칸으로 이동할 수 있습니다.<br />
+        - 큰 말만 작은 말을 덮을 수 있습니다.<br />
+        - 맨 위에 보이는 자기 말 4개가 한 줄이 되면 승리합니다.<br />
+        - 클릭으로 선택한 뒤 칸을 클릭하는 방식도 가능합니다.
+      </div>
+    </div>
+
+    <div class="panel player2">
+      <div class="player-title">파랑 플레이어</div>
+      <div class="bank" id="bank-p2"></div>
+      <div class="tiny">상대 말을 덮어도, 아래에 있던 말은 그대로 남아 있습니다.</div>
+    </div>
+  </div>
+
+  <script>
+    const SIZE_ORDER = {
+      small: 1,
+      medium: 2,
+      large: 3,
+      xlarge: 4
+    };
+
+    const SIZE_LABEL = {
+      small: "소",
+      medium: "중",
+      large: "대",
+      xlarge: "특대"
+    };
+
+    const PLAYER_LABEL = {
+      p1: "흰색",
+      p2: "검은색"
+    };
+
+    const SIZES = ["small", "medium", "large", "xlarge"];
+
+    let currentPlayer = "p1";
+    let gameOver = false;
+    let selectedPiece = null;
+    let dragState = null;
+    let ghostEl = null;
+
+    let reserves;
+    let board;
+
+    const boardEl = document.getElementById("board");
+    const bankP1El = document.getElementById("bank-p1");
+    const bankP2El = document.getElementById("bank-p2");
+    const statusEl = document.getElementById("status");
+    const resetBtn = document.getElementById("resetBtn");
+    const cancelBtn = document.getElementById("cancelBtn");
+
+    function makeInitialReserves() {
+      return {
+        p1: {
+          small: 3,
+          medium: 3,
+          large: 3,
+          xlarge: 3
+        },
+        p2: {
+          small: 3,
+          medium: 3,
+          large: 3,
+          xlarge: 3
+        }
+      };
+    }
+
+    function makeInitialBoard() {
+      return Array.from({ length: 16 }, () => []);
+    }
+
+    function createPieceId() {
+      return "piece-" + Math.random().toString(36).slice(2) + Date.now();
+    }
+
+    function topPiece(cellIndex) {
+      const stack = board[cellIndex];
+      if (!stack.length) return null;
+      return stack[stack.length - 1];
+    }
+
+    function getTopOwner(cellIndex) {
+      const piece = topPiece(cellIndex);
+      return piece ? piece.player : null;
+    }
+
+    function canPlace(piece, targetIndex) {
+      if (targetIndex === null || targetIndex === undefined) return false;
+
+      const targetTop = topPiece(targetIndex);
+
+      if (!targetTop) return true;
+
+      return SIZE_ORDER[piece.size] > SIZE_ORDER[targetTop.size];
+    }
+
+    function canMoveFromBoard(sourceIndex) {
+      const piece = topPiece(sourceIndex);
+      if (!piece) return false;
+      if (piece.player !== currentPlayer) return false;
+      return true;
+    }
+
+    function wouldRevealWinForOpponent(sourceIndex) {
+      const moving = topPiece(sourceIndex);
+      if (!moving) return false;
+
+      const removed = board[sourceIndex].pop();
+      const winner = checkWinner();
+      board[sourceIndex].push(removed);
+
+      return winner && winner !== currentPlayer;
+    }
+
+    function checkWinner() {
+      const lines = [
+        [0, 1, 2, 3],
+        [4, 5, 6, 7],
+        [8, 9, 10, 11],
+        [12, 13, 14, 15],
+        [0, 4, 8, 12],
+        [1, 5, 9, 13],
+        [2, 6, 10, 14],
+        [3, 7, 11, 15],
+        [0, 5, 10, 15],
+        [3, 6, 9, 12]
+      ];
+
+      for (const line of lines) {
+        const owners = line.map(index => getTopOwner(index));
+        const first = owners[0];
+
+        if (first && owners.every(owner => owner === first)) {
+          return first;
+        }
+      }
+
+      return null;
+    }
+
+    function setStatus(message) {
+      statusEl.innerHTML = message;
+    }
+
+    function updateStatus() {
+      if (gameOver) return;
+
+      const playerText = PLAYER_LABEL[currentPlayer];
+      const turnClass = currentPlayer === "p1" ? "turn-p1" : "turn-p2";
+
+      if (selectedPiece) {
+        setStatus(
+          `<span class="${turnClass}">${playerText}</span> 플레이어: 놓을 칸을 선택하세요.`
+        );
+      } else {
+        setStatus(
+          `<span class="${turnClass}">${playerText}</span> 플레이어의 턴입니다.`
+        );
+      }
+    }
+
+    function selectPiece(piece) {
+      if (gameOver) return;
+      if (piece.player !== currentPlayer) return;
+
+      if (piece.source === "board") {
+        if (!canMoveFromBoard(piece.sourceIndex)) {
+          showTemporaryError("보드에서는 자기 맨 위 말만 움직일 수 있습니다.");
+          return;
+        }
+      }
+
+      selectedPiece = piece;
+      render();
+    }
+
+    function clearSelection() {
+      selectedPiece = null;
+      clearDropHints();
+      render();
+    }
+
+    function finishTurn() {
+      const winner = checkWinner();
+
+      if (winner) {
+        gameOver = true;
+        selectedPiece = null;
+        clearDropHints();
+        render();
+        const cls = winner === "p1" ? "turn-p1" : "turn-p2";
+        setStatus(`<span class="winner"><span class="${cls}">${PLAYER_LABEL[winner]}</span> 플레이어 승리!</span>`);
+        return;
+      }
+
+      currentPlayer = currentPlayer === "p1" ? "p2" : "p1";
+      selectedPiece = null;
+      clearDropHints();
+      render();
+    }
+
+    function placeSelectedPiece(targetIndex) {
+      if (gameOver) return;
+      if (!selectedPiece) return;
+
+      const piece = selectedPiece;
+
+      if (piece.player !== currentPlayer) return;
+
+      if (piece.source === "board" && piece.sourceIndex === targetIndex) {
+        selectedPiece = null;
+        render();
+        return;
+      }
+
+      if (!canPlace(piece, targetIndex)) {
+        showTemporaryError("더 큰 말만 작은 말을 덮을 수 있습니다.");
+        return;
+      }
+
+      if (piece.source === "reserve") {
+        if (reserves[piece.player][piece.size] <= 0) return;
+
+        reserves[piece.player][piece.size]--;
+
+        board[targetIndex].push({
+          id: createPieceId(),
+          player: piece.player,
+          size: piece.size
+        });
+      }
+
+      if (piece.source === "board") {
+        if (!canMoveFromBoard(piece.sourceIndex)) {
+          showTemporaryError("자기 맨 위 말만 이동할 수 있습니다.");
+          return;
+        }
+
+        if (wouldRevealWinForOpponent(piece.sourceIndex)) {
+          showTemporaryError("이동하면 상대의 3목이 즉시 드러나므로 이동할 수 없습니다.");
+          return;
+        }
+
+        const movingPiece = board[piece.sourceIndex].pop();
+        board[targetIndex].push(movingPiece);
+      }
+
+      finishTurn();
+    }
+
+    function showTemporaryError(message) {
+      const previous = statusEl.innerHTML;
+      setStatus(`<span class="error">${message}</span>`);
+      setTimeout(() => {
+        if (!gameOver) {
+          statusEl.innerHTML = previous;
+        }
+      }, 1200);
+    }
+
+    function render() {
+      renderBanks();
+      renderBoard();
+      updateStatus();
+      applyDropHints();
+    }
+
+    function renderBanks() {
+      renderBank("p1", bankP1El);
+      renderBank("p2", bankP2El);
+    }
+
+    function renderBank(player, container) {
+      container.innerHTML = "";
+
+      for (const size of SIZES) {
+        const row = document.createElement("div");
+        row.className = "size-row";
+
+        const label = document.createElement("div");
+        label.className = "size-label";
+        label.textContent = `${SIZE_LABEL[size]} 말 ${reserves[player][size]}개`;
+
+        const pieces = document.createElement("div");
+        pieces.className = "pieces";
+
+        for (let i = 0; i < reserves[player][size]; i++) {
+          const pieceEl = createPieceElement({
+            source: "reserve",
+            player: player,
+            size: size,
+            reserveIndex: i
+          });
+
+          if (player !== currentPlayer || gameOver) {
+            pieceEl.classList.add("disabled");
+          }
+
+          pieces.appendChild(pieceEl);
+        }
+
+        row.appendChild(label);
+        row.appendChild(pieces);
+        container.appendChild(row);
+      }
+    }
+
+    function renderBoard() {
+      boardEl.innerHTML = "";
+
+      for (let i = 0; i < 16; i++) {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        cell.dataset.cellIndex = String(i);
+
+        const stackEl = document.createElement("div");
+        stackEl.className = "stack";
+
+        const stack = board[i];
+
+        for (let j = 0; j < stack.length; j++) {
+          const piece = stack[j];
+          const isTop = j === stack.length - 1;
+
+          const pieceEl = createPieceElement({
+            source: "board",
+            player: piece.player,
+            size: piece.size,
+            sourceIndex: i,
+            id: piece.id
+          });
+
+          pieceEl.classList.add("on-board");
+
+          if (isTop) {
+            pieceEl.classList.add("top-piece");
+          } else {
+            pieceEl.classList.add("covered");
+          }
+
+          if (!isTop || piece.player !== currentPlayer || gameOver) {
+            pieceEl.classList.add("disabled");
+          }
+
+          stackEl.appendChild(pieceEl);
+        }
+
+        cell.appendChild(stackEl);
+
+        cell.addEventListener("click", () => {
+          if (selectedPiece) {
+            placeSelectedPiece(i);
+          }
+        });
+
+        boardEl.appendChild(cell);
+      }
+    }
+
+    function createPieceElement(piece) {
+      const el = document.createElement("div");
+      el.className = `piece ${piece.size} ${piece.player}`;
+
+      el.dataset.source = piece.source;
+      el.dataset.player = piece.player;
+      el.dataset.size = piece.size;
+
+      if (piece.source === "board") {
+        el.dataset.sourceIndex = String(piece.sourceIndex);
+        el.dataset.id = piece.id;
+      }
+
+      const isSelected =
+        selectedPiece &&
+        selectedPiece.source === piece.source &&
+        selectedPiece.player === piece.player &&
+        selectedPiece.size === piece.size &&
+        (
+          piece.source === "reserve" ||
+          selectedPiece.sourceIndex === piece.sourceIndex
+        );
+
+      if (isSelected) {
+        el.classList.add("selected");
+      }
+
+      el.addEventListener("click", (event) => {
+        event.stopPropagation();
+
+        if (el.classList.contains("disabled")) return;
+
+        const data = readPieceDataFromElement(el);
+        selectPiece(data);
+      });
+
+      el.addEventListener("pointerdown", (event) => {
+        if (el.classList.contains("disabled")) return;
+        startDrag(event, el);
+      });
+
+      return el;
+    }
+
+    function readPieceDataFromElement(el) {
+      const data = {
+        source: el.dataset.source,
+        player: el.dataset.player,
+        size: el.dataset.size
+      };
+
+      if (data.source === "board") {
+        data.sourceIndex = Number(el.dataset.sourceIndex);
+        data.id = el.dataset.id;
+      }
+
+      return data;
+    }
+
+    function startDrag(event, el) {
+      if (gameOver) return;
+
+      const piece = readPieceDataFromElement(el);
+
+      if (piece.player !== currentPlayer) return;
+
+      if (piece.source === "board" && !canMoveFromBoard(piece.sourceIndex)) {
+        showTemporaryError("보드에서는 자기 맨 위 말만 움직일 수 있습니다.");
+        return;
+      }
+
+      event.preventDefault();
+      el.setPointerCapture(event.pointerId);
+
+      selectedPiece = piece;
+      dragState = {
+        pointerId: event.pointerId,
+        piece: piece,
+        originalEl: el,
+        currentTargetIndex: null,
+        moved: false
+      };
+
+      ghostEl = el.cloneNode(true);
+      ghostEl.classList.remove("selected");
+      ghostEl.classList.remove("disabled");
+      ghostEl.classList.remove("on-board");
+      ghostEl.classList.remove("top-piece");
+      ghostEl.classList.remove("covered");
+      ghostEl.classList.add("ghost");
+      document.body.appendChild(ghostEl);
+
+      el.classList.add("dragging");
+
+      moveGhost(event.clientX, event.clientY);
+      applyDropHints();
+
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("pointerup", onPointerUp);
+      window.addEventListener("pointercancel", onPointerUp);
+    }
+
+    function onPointerMove(event) {
+      if (!dragState) return;
+      if (event.pointerId !== dragState.pointerId) return;
+
+      dragState.moved = true;
+      moveGhost(event.clientX, event.clientY);
+
+      const targetIndex = getCellIndexAtPoint(event.clientX, event.clientY);
+      dragState.currentTargetIndex = targetIndex;
+
+      applyDropHints(targetIndex);
+    }
+
+    function onPointerUp(event) {
+      if (!dragState) return;
+      if (event.pointerId !== dragState.pointerId) return;
+
+      const targetIndex = getCellIndexAtPoint(event.clientX, event.clientY);
+
+      cleanupDragVisuals();
+
+      if (targetIndex !== null && targetIndex !== undefined) {
+        placeSelectedPiece(targetIndex);
+      } else {
+        selectedPiece = null;
+        render();
+      }
+
+      dragState = null;
+    }
+
+    function moveGhost(x, y) {
+      if (!ghostEl) return;
+      ghostEl.style.left = x + "px";
+      ghostEl.style.top = y + "px";
+    }
+
+    function cleanupDragVisuals() {
+      if (ghostEl) {
+        ghostEl.remove();
+        ghostEl = null;
+      }
+
+      if (dragState && dragState.originalEl) {
+        dragState.originalEl.classList.remove("dragging");
+      }
+
+      clearDropHints();
+
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+    }
+
+    function getCellIndexAtPoint(x, y) {
+      const el = document.elementFromPoint(x, y);
+      if (!el) return null;
+
+      const cell = el.closest(".cell");
+      if (!cell) return null;
+
+      return Number(cell.dataset.cellIndex);
+    }
+
+    function clearDropHints() {
+      const cells = boardEl.querySelectorAll(".cell");
+      cells.forEach(cell => {
+        cell.classList.remove("can-drop");
+        cell.classList.remove("bad-drop");
+      });
+    }
+
+    function applyDropHints(hoverIndex = null) {
+      clearDropHints();
+
+      if (!selectedPiece || gameOver) return;
+
+      const cells = boardEl.querySelectorAll(".cell");
+
+      cells.forEach(cell => {
+        const index = Number(cell.dataset.cellIndex);
+
+        if (selectedPiece.source === "board" && selectedPiece.sourceIndex === index) {
+          return;
+        }
+
+        if (canPlace(selectedPiece, index)) {
+          cell.classList.add("can-drop");
+        }
+      });
+
+      if (hoverIndex !== null && hoverIndex !== undefined) {
+        const hoverCell = boardEl.querySelector(`[data-cell-index="${hoverIndex}"]`);
+
+        if (!hoverCell) return;
+
+        if (
+          selectedPiece.source === "board" &&
+          selectedPiece.sourceIndex === hoverIndex
+        ) {
+          return;
+        }
+
+        if (!canPlace(selectedPiece, hoverIndex)) {
+          hoverCell.classList.add("bad-drop");
+        }
+      }
+    }
+
+    function resetGame() {
+      currentPlayer = "p1";
+      gameOver = false;
+      selectedPiece = null;
+      dragState = null;
+      reserves = makeInitialReserves();
+      board = makeInitialBoard();
+      render();
+    }
+
+    resetBtn.addEventListener("click", resetGame);
+    cancelBtn.addEventListener("click", clearSelection);
+
+    resetGame();
+  
+
+// 승리한 줄 노란색 표시 보강 코드
+(function(){
+  function markWinningCells(){
+    if (!Array.isArray(window.board)) return;
+    const lines = [];
+    for (let r = 0; r < 4; r++) lines.push([r*4, r*4+1, r*4+2, r*4+3]);
+    for (let c = 0; c < 4; c++) lines.push([c, c+4, c+8, c+12]);
+    lines.push([0,5,10,15], [3,6,9,12]);
+    for (const line of lines) {
+      const owners = line.map(i => {
+        const stack = window.board[i];
+        const top = Array.isArray(stack) ? stack[stack.length - 1] : (stack && stack.top ? stack.top : null);
+        return top && (top.player || top.owner || top.color);
+      });
+      if (owners[0] && owners.every(v => v === owners[0])) {
+        line.forEach(i => {
+          const el = document.getElementById('cell-' + i) || document.querySelector('[data-cell="' + i + '"], [data-index="' + i + '"]');
+          if (el) el.classList.add('win-cell');
+        });
+        return;
+      }
+    }
+  }
+  document.addEventListener('click', function(){ setTimeout(markWinningCells, 30); }, true);
+  document.addEventListener('drop', function(){ setTimeout(markWinningCells, 30); }, true);
+})();
+</script>
+</body>
+</html>
